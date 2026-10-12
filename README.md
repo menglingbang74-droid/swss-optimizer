@@ -15,14 +15,15 @@
 
 ## 快速打开
 
+**在线 Demo（推荐，已上线）**：<https://menglingbang74-droid.github.io/swss-optimizer/>
+
+或者本地直接双击（无需服务器、无第三方依赖）：
+
 ```bash
-# 直接双击（无需服务器、无第三方依赖）
 web/index.html
 ```
 
-或在线访问（GitHub Pages 部署后）：`https://menglingbang74-droid.github.io/swss-optimizer/`
-
-> 还没上线？看 [DEPLOY.md](DEPLOY.md) —— 里面是完整的上线操作清单（含一键脚本 `deploy.sh`）。
+> 部署与维护说明见 [DEPLOY.md](DEPLOY.md)。
 
 ## 验证结果
 

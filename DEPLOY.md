@@ -3,34 +3,28 @@
 目标：把本地这个项目推到 GitHub，开启 GitHub Pages，拿到一个**能点开的链接**——
 简历上唯一有价值的就是这个链接。
 
-当前状态：本地 `main` 有 3 个提交，工作区干净，**尚未配置 remote、尚未推送**。
+> **状态：✅ 已完成（2026-10-12）。**
+> - 线上地址：<https://menglingbang74-droid.github.io/swss-optimizer/>
+> - 仓库：<https://github.com/menglingbang74-droid/swss-optimizer>
+> - 方式：路线 A（Git Data API）· commit `c8fcf7909b70` · CI run #1 的 build + deploy 全绿
+> - 用过的 token 已提醒作废（见第 8 节）
+>
+> 本文档保留，用于**以后更新**或换机重来。
 
 ---
 
-## 0. 先解决仓库名（重要）
+## 0. 仓库名（✅ 已完成）
 
-你账号下现在有 3 个仓库，都是空的：
+`AI-` 已重命名为 **`swss-optimizer`**，内容已推送到该仓库。
 
-| 仓库 | 状态 |
-|---|---|
-| `-` | 空 · 名字是坏的 |
-| `AI-` | 空 · 名字是坏的 |
-| `campus-job-targeting` | 空 · 名字正常 |
+账号下还剩两个空仓库：`-`（名字仍是坏的，**建议删掉**）、`campus-job-targeting`（另一个项目要用）。
 
-`-` 和 `AI-` 看着像创建时被截断了。**仓库名会直接出现在简历链接里**：
+**为什么要改**：仓库名会直接出现在简历链接里 ——
 
 ```
 https://menglingbang74-droid.github.io/AI-/                ← 面试官会愣一下
-https://menglingbang74-droid.github.io/swss-optimizer/     ← 直接说明这是什么
+https://menglingbang74-droid.github.io/swss-optimizer/     ← 一眼说明这是什么
 ```
-
-**推荐**：把 `AI-` 重命名成 `swss-optimizer`（不用重建，历史和设置都保留）
-> `AI-` 仓库页 → **Settings** → 顶部 **Rename** → 填 `swss-optimizer` → Rename
-
-另外两个坏名字的仓库顺手删掉或改名，别留在主页上。
-
-> 重命名**不影响**已经推上去的内容，Pages 地址会跟着仓库名自动变。
-> 所以「先推后改名」也没问题，顺序随意。
 
 ---
 
@@ -44,6 +38,14 @@ https://menglingbang74-droid.github.io/swss-optimizer/     ← 直接说明这�
 4. Generate → 复制那串 `ghp_...`
 
 验证完成后到同一页面 **把这个 token 删掉**。
+
+> **别走错页面**：GitHub 现在的默认入口是 `Fine-grained tokens`，那个要勾的是
+> Repository access = `Only select repositories` → 选 `swss-optimizer`，
+> 再把 **Contents / Workflows / Pages** 三项都设成 `Read and write`（Account permissions 一律不动）。
+>
+> 两条路都能用，但**推荐 classic**，原因很实际：classic 会在响应头里回传 `X-OAuth-Scopes`，
+> `deploy_api.py` 因此能在推代码**之前**就发现 `workflow` 没勾；
+> 细粒度 token 不回传该头，只能等推 blob 时被 403 打回来才发现。
 
 ---
 
@@ -64,10 +66,15 @@ https://menglingbang74-droid.github.io/swss-optimizer/     ← 直接说明这�
 python deploy_api.py --owner menglingbang74-droid --repo swss-optimizer
 ```
 
-它会：校验 token 与权限 → 上传 24 个文件 → 建提交 → 建/更新 `main` →
-开启 Pages（source = GitHub Actions）→ 打印仓库与在线地址。
+它会：校验 token 与权限 →（空仓库则先激活）→ 上传 25 个文件 → 建提交 →
+建/更新 `main` → 开启 Pages（source = GitHub Actions）→ 打印仓库与在线地址。
 
 > 想先看它要动什么、不写入任何东西：加 `--dry-run`。
+
+**踩过的坑（已修进脚本）**：零提交的空仓库上，`POST /git/blobs` 会返回
+`409 Git Repository is empty.` —— 空仓库的对象库还没激活，整个 Git Data API 都用不了。
+所以脚本现在会先用 **Contents API** 写一个文件（`README.md`）产生首个提交把仓库激活，
+之后再走正常流程。因此远端历史是 2 个提交（`初始化仓库` + 真正的初始提交），属正常现象。
 
 ### 路线 B：你自己跑（推荐，你本机 `github.com` 是通的）
 
@@ -116,6 +123,25 @@ git add -A && git commit -m "..." && git push
 ```
 
 CI 会自动重新生成数据、构建、再部署。
+
+### ⚠️ 首次上线是用 API 推的，本机 `git push` 前要先对齐一次
+
+首次上线走的是 Git Data API，它把全部内容压成了**一个**提交，
+与你本机原来的 4 个提交是**两条互不相关的历史**。
+因此本机第一次 `git push` 会被拒（non-fast-forward）。先做一次对齐：
+
+```bash
+git remote add origin https://github.com/menglingbang74-droid/swss-optimizer.git   # 若还没有 remote
+git fetch origin
+git reset --hard origin/main     # 本机对齐远端；内容一致，只是历史被归并
+```
+
+之后 `git push` 恢复正常。
+
+> 想保住本机那 4 个提交就先 `git branch local-history-backup` 再 reset；
+> 或者干脆继续用 `python deploy_api.py ...` 推——它每次把本地全部文件重建成一个 tree
+> 挂到远端最新提交上，**不依赖两边历史一致**。
+> （注意：这个沙箱里 `github.com` 不通，所以对齐动作必须在**你自己的电脑**上做。）
 
 ---
 
@@ -168,3 +194,54 @@ git config user.email "你的邮箱"
 ```
 
 同时把 `LICENSE` 第一行的署名一起改掉。
+
+---
+
+## 8. 实际执行记录与环境限制（2026-10-12 留档）
+
+**做了什么**
+
+| 步骤 | 结果 |
+|---|---|
+| 推送内容 | 25 个文件 / 433 KB → `main` @ `c8fcf7909b70` |
+| CI | run #1 ·build ✅·deploy ✅ |
+| 部署状态 | `deployments/{id}/statuses` → `state=success`，`environment_url=https://menglingbang74-droid.github.io/swss-optimizer/` |
+| Pages 配置 | `GET /pages` → 200 · `build_type=workflow` · `public=true` |
+
+**⚠️ 一条重要限制：AI 沙箱打不开链接**
+
+出口代理放行 `api.github.com` / `codeload.github.com`，但**整个 `github.io` 域名被拦**：
+
+```
+menglingbang74-droid.github.io     DNS 能解析（185.199.111.153），TLS 握手被掐 → curl 000
+electron.github.io   （对照组）    → 同样 000
+cli.github.io        （对照组）    → 同样 000
+```
+
+对照组证明这是**域名级拦截**，不是站点本身的问题。第三方抓取通道（r.jina.ai / allorigins / corsproxy）也都不通。
+
+**所以：线上页面是否真的能打开，必须由本机浏览器确认一次。**
+上面那三条 API 证据是能拿到的最强间接证明，但**它不等于「打开看过」**。
+第一次面试演示前，务必自己过一遍：
+
+1. 桌面浏览器打开线上地址 → KPI 卡片正常显示
+2. 拖两个滑杆、点一次「重新计算 Pareto」→ 不死锁、数值跟着变
+3. 手机浏览器再开一次 → 排版正常（结果区在参数区上方）
+4. 把链接粘到微信里发给自己 → 能出缩略图（验证 `og:image` 的绝对地址生效）
+
+**其它已验证可用的 API 端点（供以后参考）**
+
+| 用途 | 端点 | 备注 |
+|---|---|---|
+| 确认仓库存在 | `GET /repos/{o}/{r}` | |
+| 读 Pages 配置 | `GET /repos/{o}/{r}/pages` | **必须带 token**，匿名请求会误报 404 |
+| 确认部署成功 | `GET /repos/{o}/{r}/deployments` → `/statuses` | 从这个接口能拿到真实线上地址 |
+| 看 CI 结论 | `GET /repos/{o}/{r}/actions/runs` | 带上 `/jobs` 可看每一步 |
+
+**两个会骗人的「空返回」**
+
+- `git ls-remote <url>` 在这个网络下会**静默失败并返回空 + exit 0**，
+  看起来像「仓库存在但为空」。**判断仓库是否存在只能用 `GET /repos/{o}/{r}`。**
+- `git push` 在此环境永远会失败（`CONNECT tunnel failed, response 502`），
+  别在它上面浪费时间——直接用 `deploy_api.py`。
+
