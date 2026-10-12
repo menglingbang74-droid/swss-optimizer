@@ -1,0 +1,6 @@
+# 模型与数据生成只需 numpy（Python 3.9+）
+numpy>=1.24
+
+# 仅验证链需要（真实浏览器端到端测试）；不跑 browser_check.py 可不装
+# pip install playwright && playwright install chromium
+# playwright>=1.40

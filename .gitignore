@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+
+# 生成物：run_v1.py / build.py / xcheck.py 均可重新生成，不入库
+#   注意：out/xcheck.json 是 xcheck.js 的输入。
+#   克隆后请先跑 `python xcheck.py`（它会自动创建 out/），否则 node xcheck.js 会报缺文件。
+#   我们刻意不提交它——避免"基准值"被误当成源文件改动，也让 CI 每次都真跑一遍 Python 侧。
+out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

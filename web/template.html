@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>二次供水错峰蓄水 × 余氯衰减优化器 · SWSS Optimizer</title>
+<meta name="description" content="二次供水泵房错峰蓄水与二次补氯的多目标优化模拟器：把主泵电费、补氯折旧、计量泵电耗、药剂费四笔钱放进同一坐标系，用 Pareto 前沿给出达标前提下的最省方案。零依赖，浏览器内实时计算。">
+<meta name="theme-color" content="#FF4D00">
+<meta property="og:type" content="website">
+<meta property="og:title" content="二次供水错峰蓄水 × 余氯衰减优化器 · SWSS Optimizer">
+<meta property="og:description" content="错峰蓄水的省钱与余氯衰减的水质风险，在同一张 Pareto 前沿上取舍。零依赖、浏览器内实时计算。">
+<meta property="og:image" content="__OG_IMAGE__">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23FF4D00'/%3E%3Crect x='6' y='19' width='20' height='3.2' fill='%23fff'/%3E%3Crect x='6' y='13' width='20' height='2.6' fill='%23fff' opacity='.62'/%3E%3Crect x='6' y='7.5' width='20' height='2.6' fill='%23fff' opacity='.32'/%3E%3C/svg%3E">
+<style>
+/* ============================================================
+   Hallmark · pre-emit critique: P5 H5 E5 S4 R5 V4
+   Hallmark · macrostructure: Workbench · tone: technical · anchor hue: warm-signal-orange
+   theme: custom — paper oklch(100% 0 0) · accent oklch(62% .24 32) signal-orange
+   axes: light-band / grotesk+instrument-mono / warm-accent
+   ------------------------------------------------------------
+   视觉系统：瑞士国际主义 · 零圆角 · 高饱和 · 直白
+   主色 Signal 橙 #FF4D00（沿用 AUDEN 品牌资产）
+   H6 修复：--ink3 由 #8E949E(3.05:1) 改 #6B7078(5.14:1)；
+            文字用深色版强调色（--*-ink），图形填充保留亮色（--*）
+   ============================================================ */
+:root{
+  /* --- 文字（全部 ≥4.5:1 on #FFF）--- */
+  --ink:#0B0B0C;          /* 主文字   19.7:1 */
+  --ink2:#4A4E56;         /* 次级正文  8.68:1 */
+  --ink3:#6B7078;         /* 辅助文字  5.14:1  ← H6 */
+  /* --- 面与线 --- */
+  --paper:#FFFFFF; --paper2:#F5F6F8; --paper3:#EDF0F3;
+  --line:#DCE0E5; --line2:#EDF0F3;
+  /* --- 强调色：图形填充 / 大面积用亮色 --- */
+  --o:#FF4D00; --b:#0057FF; --t:#00A3AD; --y:#F2B100; --g:#00A65A; --r:#E5371B;
+  /* --- 强调色：小字用深色版（WCAG AA）--- */
+  --o-ink:#C93B00;        /* 5.11:1 */
+  --t-ink:#00787F;        /* 5.26:1 */
+  --y-ink:#8A6A00;        /* 5.07:1 */
+  --g-ink:#00703C;        /* 6.21:1  ← H6 */
+  --r-ink:#C42C12;        /* 5.65:1 */
+  /* --- 字体 --- */
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  /* --- 4pt 间距 --- */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px; --s10:40px;
+  /* --- 动效 --- */
+  --dur:.16s; --ease:cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box}
+html{overflow-x:clip}
+body{margin:0;background:var(--paper);color:var(--ink);font-size:13.5px;line-height:1.62;
+  font-family:var(--font);overflow-x:clip;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+
+/* 焦点可见（鼠标点击不出现难看框，键盘用户看得见） */
+:focus-visible{outline:2px solid var(--o);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;
+  transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+.topbar{height:5px;background:var(--o)}
+.wrap{max-width:1420px;margin:0 auto;padding:0 var(--s6) 80px}
+
+/* ---------- 页头 ---------- */
+header{padding:var(--s6) 0 var(--s4);border-bottom:3px solid var(--ink);margin-bottom:var(--s5)}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--o-ink);font-weight:700;margin-bottom:10px}
+h1{font-size:clamp(20px,3.4vw,28px);margin:0 0 var(--s2);letter-spacing:-.02em;font-weight:800;line-height:1.26}
+.lede{color:var(--ink2);font-size:13.5px;margin:0;max-width:900px}
+.lede b{color:var(--ink);font-weight:800}
+.tags{margin-top:var(--s3);display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);padding:3px 8px;
+  color:var(--ink2);background:var(--paper2);letter-spacing:.01em;white-space:nowrap}
+.tag.k{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:700}
+
+/* ---------- 布局 ---------- */
+.layout{display:grid;grid-template-columns:322px minmax(0,1fr);gap:var(--s5);align-items:start}
+@media(max-width:1040px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .layout>main{order:-1}          /* M3：移动端结果上移、面板下移 */
+  .panel{position:static;max-height:none;overflow:visible}
+}
+
+/* ---------- 控制面板 ---------- */
+.panel{border:1px solid var(--line);background:var(--paper);position:sticky;top:var(--s4);
+  max-height:calc(100vh - 32px);overflow:auto}
+.panel summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:var(--s2);
+  padding:var(--s3) var(--s4);background:var(--ink);color:#fff;font-size:12px;font-weight:800;
+  letter-spacing:.08em}
+.panel summary::-webkit-details-marker{display:none}
+.panel summary .chev{margin-left:auto;font-family:var(--mono);font-size:11px;color:#C4C8CE;transition:transform var(--dur) var(--ease)}
+.panel details[open] summary .chev{transform:rotate(90deg)}
+.panel summary .pm{font-family:var(--mono);font-weight:600;font-size:10.5px;color:#C4C8CE}
+.psec{padding:var(--s4);border-bottom:1px solid var(--line)}
+.psec:last-child{border-bottom:none}
+.st{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink3);font-weight:700;margin-bottom:var(--s3);padding-bottom:6px;border-bottom:1px solid var(--line)}
+.ctl{margin-bottom:var(--s3)}
+.ctl:last-child{margin-bottom:2px}
+.clab{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s2);
+  font-size:12.5px;margin-bottom:3px;cursor:pointer}
+.clab b{font-weight:700;color:var(--ink)}
+.clab .val{font-family:var(--mono);color:var(--o-ink);font-weight:700;font-size:12.5px;white-space:nowrap}
+.chint{font-size:11px;color:var(--ink3);margin-top:3px;line-height:1.5}
+/* 滑杆：自绘，方角（原生 Chrome 拇指是圆角，违反本项目"零圆角"规范）
+   - 命中区桌面 24px / 触屏 44px（WCAG 2.2 SC 2.5.8 要求 ≥24×24）
+   - --p = 已填充比例，由 JS 写入（原生 appearance:none 后不再自动绘制已填充段） */
+input[type=range]{-webkit-appearance:none;appearance:none;display:block;width:100%;margin:0;
+  height:24px;background:transparent;cursor:pointer;--p:0%}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border:none;border-radius:0;
+  background:linear-gradient(to right,var(--o) 0 var(--p),var(--paper3) var(--p) 100%)}
+input[type=range]::-moz-range-track{height:4px;border:none;border-radius:0;
+  background:linear-gradient(to right,var(--o) 0 var(--p),var(--paper3) var(--p) 100%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:11px;height:24px;margin-top:-10px;border:none;border-radius:0;background:var(--ink)}
+input[type=range]::-moz-range-thumb{width:11px;height:24px;border:none;border-radius:0;background:var(--ink)}
+input[type=range]:focus-visible{outline:2px solid var(--o);outline-offset:3px}
+/* 触屏：加大命中区到 44px，拇指加长但仍保持方角 */
+@media (pointer:coarse){
+  input[type=range]{height:44px}
+  input[type=range]::-webkit-slider-thumb{width:14px;height:34px;margin-top:-15px}
+  input[type=range]::-moz-range-thumb{width:14px;height:34px}
+}
+.btn{width:100%;padding:10px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:12.5px;
+  font-weight:800;cursor:pointer;font-family:var(--font);letter-spacing:.04em;transition:background var(--dur) var(--ease)}
+.btn:hover{background:var(--o);border-color:var(--o)}
+.btn:disabled{opacity:.55;cursor:progress}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--ink)}
+.seg button{padding:7px 4px;border:none;background:#fff;color:var(--ink2);font-size:11.5px;
+  font-weight:700;cursor:pointer;font-family:var(--font);transition:background var(--dur) var(--ease)}
+.seg button.on{background:var(--ink);color:#fff}
+.seg button:hover:not(.on){background:var(--paper2);color:var(--o-ink)}
+
+/* ---------- 章节 ---------- */
+main{min-width:0}
+.sec{margin-bottom:var(--s6)}
+h2.sech{font-size:12px;font-weight:800;letter-spacing:.06em;padding-bottom:7px;
+  border-bottom:2px solid var(--ink);margin:0 0 var(--s4);color:var(--ink);
+  display:flex;align-items:baseline;gap:var(--s2)}
+h2.sech .idx{font-family:var(--mono);color:var(--o-ink);font-size:11px;letter-spacing:.04em}
+h2.sech .n{margin-left:auto;font-weight:400;letter-spacing:0;color:var(--ink3);font-size:11.5px;
+  font-family:var(--mono)}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3)}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{border:1px solid var(--line);border-top:4px solid var(--ink);padding:var(--s3) var(--s4) var(--s4);
+  background:#fff;position:relative;min-width:0}
+.kpi.o{border-top-color:var(--o)} .kpi.b{border-top-color:var(--b)}
+.kpi.g{border-top-color:var(--g)} .kpi.r{border-top-color:var(--r)}
+.kl{font-size:11px;color:var(--ink3);margin-bottom:2px;letter-spacing:.02em}
+.kv{font-size:clamp(24px,2.2vw,30px);font-weight:800;font-variant-numeric:tabular-nums;
+  letter-spacing:-.03em;line-height:1.1;min-width:0}
+.kv .u{font-size:12px;font-weight:600;color:var(--ink3);margin-left:3px;letter-spacing:0}
+.kd{font-size:11.5px;margin-top:var(--s2);color:var(--ink2);font-family:var(--mono);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kd.good{color:var(--g-ink);font-weight:700}
+.kd.bad{color:var(--r-ink);font-weight:700}
+.kbadge{position:absolute;top:var(--s3);right:var(--s4);font-size:10px;font-weight:800;
+  padding:2px 7px;letter-spacing:.04em;color:#fff}
+.kbadge.ok{background:var(--g-ink)} .kbadge.no{background:var(--r-ink)}
+.basedef{font-size:11.5px;color:var(--ink3);margin-top:var(--s3)}
+.basedef b{color:var(--ink2);font-weight:700}
+
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--line);
+  border:1px solid var(--line);border-top:none;margin-top:var(--s3)}
+@media(max-width:880px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:#fff;padding:var(--s2) var(--s3);min-width:0}
+.stat .sl{font-size:10.5px;color:var(--ink3)}
+.stat .sv{font-size:15px;font-weight:800;font-family:var(--mono);white-space:nowrap}
+.stat .sv i{font-style:normal;font-size:10.5px;font-weight:600;color:var(--ink3);margin-left:2px;
+  font-family:var(--font)}
+
+/* ---------- 成本构成条 ---------- */
+.cbar{display:flex;height:36px;border:1px solid var(--ink);background:var(--paper2)}
+.cbar div{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;
+  color:#fff;overflow:hidden;white-space:nowrap;min-width:3px;font-family:var(--mono)}
+.cleg{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-top:none}
+.leg{background:#fff;padding:var(--s2) var(--s3);min-width:0}
+.leg .lt{font-size:11px;color:var(--ink2);display:flex;align-items:center;gap:6px}
+.leg .lt i{width:10px;height:10px;display:inline-block;flex:none}
+.leg .lv{font-size:16px;font-weight:800;font-family:var(--mono);margin-top:1px}
+.leg .lp{font-size:10.5px;color:var(--ink3);font-family:var(--mono)}
+
+/* ---------- 图表 ---------- */
+/* H7：显式宽高 + max-width 兜底 —— 渲染宽度恒等于 viewBox 宽度，缩放比恒为 1x，
+   图表字号由 CSS 常量决定，不再随视口被拉伸/压扁 */
+svg{display:block;max-width:100%;height:auto}
+.chart{min-width:0}
+figure{margin:0;min-width:0}
+figcaption{font-size:11.5px;color:var(--ink3);margin-top:6px;line-height:1.55}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4)}
+@media(max-width:880px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.legend{display:flex;gap:var(--s4);flex-wrap:wrap;font-size:11.5px;color:var(--ink2);margin-top:var(--s2)}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:2px;margin-right:5px}
+.note{font-size:12.5px;line-height:1.7}
+.note p{margin:0 0 9px}
+.note p:last-child{margin:0}
+.note b{font-weight:800}
+.cn{font-size:11.5px;color:var(--ink3);margin-top:7px;line-height:1.55}
+
+/* ---------- 表格 ---------- */
+.tblscroll{overflow-x:auto;border:1px solid var(--line);position:relative}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+caption{text-align:left;font-size:11.5px;color:var(--ink3);padding:var(--s2) var(--s3);
+  border-bottom:1px solid var(--line);background:var(--paper2)}
+th{background:var(--ink);color:#fff;text-align:left;padding:8px 9px;font-weight:700;font-size:11px;
+  white-space:nowrap;letter-spacing:.03em}
+td{padding:6px 9px;border-bottom:1px solid var(--line);font-family:var(--mono);white-space:nowrap}
+tbody tr{cursor:pointer;transition:background var(--dur) var(--ease)}
+tbody tr:hover td{background:var(--paper2)}
+tbody tr:focus-visible{outline:2px solid var(--o);outline-offset:-2px}
+tr.hl td{background:#FFF1E9;font-weight:700}
+tr.ds td{color:var(--b)}
+.scrollhint{display:none}
+@media(max-width:1040px){.scrollhint{display:block;font-size:11px;color:var(--ink3);margin-top:5px}}
+
+/* ---------- 提示块 ---------- */
+.box{padding:var(--s3) var(--s4);font-size:12.5px;line-height:1.65;margin-bottom:var(--s3);
+  border:1px solid var(--line);border-left-width:5px;background:#fff}
+.box.b-o{border-left-color:var(--o);background:#FFF6F1}
+.box.b-r{border-left-color:var(--r);background:#FDF0EE}
+.box.b-b{border-left-color:var(--b);background:#F0F4FF}
+.box.b-y{border-left-color:var(--y);background:#FFF9E8}
+.box .bt{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:700;margin-bottom:5px}
+.box.b-o .bt{color:var(--o-ink)} .box.b-r .bt{color:var(--r-ink)}
+.box.b-b .bt{color:var(--b)} .box.b-y .bt{color:var(--y-ink)}
+.box b{font-variant-numeric:tabular-nums}
+code{background:var(--paper2);padding:1px 5px;font-size:11.5px;font-family:var(--mono);
+  border:1px solid var(--line);overflow-wrap:anywhere;word-break:break-word}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+footer{border-top:1px solid var(--line);margin-top:var(--s10);padding-top:var(--s4);font-size:11.5px;
+  color:var(--ink3);line-height:1.7}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Secondary Water Supply · Cost ↔ Residual Chlorine</div>
+  <h1>二次供水泵房「错峰蓄水 ↔ 余氯衰减」多目标优化模拟器</h1>
+  <p class="lede">高位调蓄水箱 + 补水泵。允许补水的时段内把水箱维持在目标液位，禁止补水的时段靠存量重力供水；低液位强制补水为安全优先。目标：<b>日总成本最低</b> / <b>用户端最低余氯最高</b>。成本含四项——主泵提升电费、补氯设施折旧与运维、计量泵电耗、次氯酸钠药剂费。</p>
+  <div class="tags">
+    <span class="tag k" id="v_ver">v2</span>
+    <span class="tag" id="v_date">生成时间 —</span>
+    <span class="tag">零依赖 · 浏览器内实时计算</span>
+    <span class="tag">水箱 CSTR + 余氯一级衰减</span>
+    <span class="tag">分时目标液位控制</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ================= 控制面板 ================= -->
+  <aside class="panel">
+    <details id="panelbox" open>
+      <summary>工况与策略参数<span class="pm">21 项</span><span class="chev">▶</span></summary>
+      <div class="pbody">
+
+        <div class="psec">
+          <div class="st">决策变量</div>
+          <div class="ctl">
+            <label class="clab" for="s_vtank"><b>水箱容积</b><span class="val" id="v_vtank">60 m³</span></label>
+            <input type="range" id="s_vtank" min="30" max="200" step="5" value="60">
+            <div class="chint">决定调蓄能力，也就决定了能避多长的峰</div>
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_th"><b>避峰阈值</b><span class="val" id="v_th">1.05 元</span></label>
+            <input type="range" id="s_th" min="0.30" max="2.00" step="0.05" value="1.05">
+            <div class="chint">电价 ≥ 该值的时段禁止补水（2.00 = 不避峰）</div>
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_voff"><b>维持液位</b><span class="val" id="v_voff">85%</span></label>
+            <input type="range" id="s_voff" min="0.35" max="0.95" step="0.05" value="0.85">
+            <div class="chint">允许补水时段内水箱保持的液位（占容积）</div>
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_dose"><b>二次补氯</b><span class="val" id="v_dose">0.0 mg/L</span></label>
+            <input type="range" id="s_dose" min="0" max="1.0" step="0.1" value="0">
+            <div class="chint">从 0 调到 0.1 是<b>成本阶跃</b>（设施启用），之后每 0.1 mg/L 只加几分钱药剂</div>
+          </div>
+        </div>
+
+        <div class="psec">
+          <div class="st">补氯经济性</div>
+          <div class="ctl">
+            <div class="clab"><b id="lb_costview">成本口径</b></div>
+            <div class="seg" role="group" aria-labelledby="lb_costview">
+              <button id="bv_full" class="on">全成本（含折旧）</button>
+              <button id="bv_run">仅运行（沉没）</button>
+            </div>
+            <div class="chint">新建/改造决策用全成本；已建泵房的日常调度用仅运行</div>
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_capex"><b>装置投资</b><span class="val" id="v_capex">3.0 万元</span></label>
+            <input type="range" id="s_capex" min="0.5" max="8" step="0.1" value="3.0">
+            <div class="chint">计量泵 + 储罐 + 余氯在线仪 + 自控，参考 2–5 万</div>
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_life"><b>折旧年限</b><span class="val" id="v_life">8 a</span></label>
+            <input type="range" id="s_life" min="5" max="15" step="1" value="8">
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_om"><b>年运维费</b><span class="val" id="v_om">3000 元/a</span></label>
+            <input type="range" id="s_om" min="500" max="8000" step="100" value="3000">
+            <div class="chint">标定、巡检、维护人工</div>
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_clp"><b>有效氯单价</b><span class="val" id="v_clp">10 元/kg</span></label>
+            <input type="range" id="s_clp" min="4" max="20" step="0.5" value="10">
+            <div class="chint">次氯酸钠（有效氯 10%）约 800–1300 元/t 折算</div>
+          </div>
+        </div>
+
+        <div class="psec">
+          <div class="st">工程参数</div>
+          <div class="ctl">
+            <label class="clab" for="s_hh"><b>户数</b><span class="val" id="v_hh">300 户</span></label>
+            <input type="range" id="s_hh" min="50" max="800" step="10" value="300">
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_pp"><b>户均人数</b><span class="val" id="v_pp">3.0 人</span></label>
+            <input type="range" id="s_pp" min="1.5" max="4.5" step="0.1" value="3.0">
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_quota"><b>用水定额</b><span class="val" id="v_quota">180 L/人·d</span></label>
+            <input type="range" id="s_quota" min="100" max="260" step="5" value="180">
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_hgeo"><b>几何扬程</b><span class="val" id="v_hgeo">54 m</span></label>
+            <input type="range" id="s_hgeo" min="20" max="110" step="2" value="54">
+            <div class="chint">屋顶水箱高于泵入口的高度（约 18 层）</div>
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_cmains"><b>市政来水余氯</b><span class="val" id="v_cmains">0.80 mg/L</span></label>
+            <input type="range" id="s_cmains" min="0.2" max="1.5" step="0.05" value="0.8">
+          </div>
+        </div>
+
+        <div class="psec">
+          <div class="st">水质参数（敏感性最大的一组）</div>
+          <div class="ctl">
+            <label class="clab" for="s_k20"><b>衰减系数 k₂₀</b><span class="val" id="v_k20">0.050 /h</span></label>
+            <input type="range" id="s_k20" min="0.01" max="0.20" step="0.005" value="0.05">
+            <div class="chint">参考区间 0.02–0.15 /h，需实测率定</div>
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_tw"><b>水温</b><span class="val" id="v_tw">22 ℃</span></label>
+            <input type="range" id="s_tw" min="4" max="32" step="1" value="22">
+            <div class="chint">温度系数 θ=1.035，水温对衰减影响最显著</div>
+          </div>
+          <div class="ctl">
+            <label class="clab" for="s_ct"><b>余氯内控目标</b><span class="val" id="v_ct">0.05 mg/L</span></label>
+            <input type="range" id="s_ct" min="0.05" max="0.50" step="0.05" value="0.05">
+            <div class="chint">0.05 = GB 5749 末梢限值；水司内控常更严，调高会强制启用补氯</div>
+          </div>
+        </div>
+
+        <div class="psec">
+          <button class="btn" id="btn_sweep">重新计算 Pareto 前沿</button>
+          <div class="chint" style="margin-top:7px" id="sweep_hint">全空间扫描，约需数秒</div>
+        </div>
+
+      </div>
+    </details>
+  </aside>
+
+  <!-- ================= 主区 ================= -->
+  <main>
+
+    <div class="sec">
+      <h2 class="sech"><span class="idx">01</span>关键指标<span class="n">准稳态日</span></h2>
+      <div class="kpis" id="kpis" aria-live="polite">
+        <div class="kpi"><div class="kl">日总成本</div><div class="kv num" id="k_total">–<span class="u">元/d</span></div><div class="kd" id="k_total_d">–</div></div>
+        <div class="kpi o"><div class="kl">主泵提升电费</div><div class="kv num" id="k_cost">–<span class="u">元/d</span></div><div class="kd" id="k_cost_d">–</div></div>
+        <div class="kpi b"><div class="kl">补氯成本</div><div class="kv num" id="k_dose">–<span class="u">元/d</span></div><div class="kd" id="k_dose_d">–</div></div>
+        <div class="kpi g" id="k_cl_card"><div class="kl">用户端最低余氯</div><div class="kbadge ok" id="k_cl_badge">–</div><div class="kv num" id="k_cl">–<span class="u">mg/L</span></div><div class="kd" id="k_cl_d">–</div></div>
+      </div>
+      <div class="basedef">对比基线 <b>＝ 全天补水 · 60 m³ · 维持液位 85% · 不补氯</b>（即改造前现状）</div>
+      <div class="stats">
+        <div class="stat"><div class="sl">主泵能耗</div><div class="sv" id="s_e">–<i>kWh/d</i></div></div>
+        <div class="stat"><div class="sl">最大水龄</div><div class="sv" id="s_age">–<i>h</i></div></div>
+        <div class="stat"><div class="sl">泵日运行时长</div><div class="sv" id="s_ph">–<i>h/d</i></div></div>
+        <div class="stat"><div class="sl">日提升水量</div><div class="sv" id="s_q">–<i>m³/d</i></div></div>
+        <div class="stat"><div class="sl">衰减系数 k</div><div class="sv" id="s_k">–<i>/h</i></div></div>
+        <div class="stat"><div class="sl">药剂消耗</div><div class="sv" id="s_chem">–<i>kg/d</i></div></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2 class="sech"><span class="idx">02</span>日总成本构成<span class="n">四项分解 · 元/天</span></h2>
+      <div class="cbar" id="cbar"></div>
+      <div class="cleg" id="cleg"></div>
+      <div class="cn" id="cbarnote"></div>
+    </div>
+
+    <div class="sec">
+      <h2 class="sech"><span class="idx">03</span>方案诊断<span class="n">自动判读当前工况</span></h2>
+      <div id="recbox"></div>
+      <div id="warnbox"></div>
+    </div>
+
+    <div class="sec">
+      <h2 class="sech"><span class="idx">04</span>Pareto 前沿：日总成本 ↔ 余氯<span class="n" id="pareto_note"></span></h2>
+      <div id="pareto" class="chart"></div>
+      <div class="legend" id="pareto_legend"></div>
+      <div class="cn">横轴为日总成本（越左越省），纵轴为用户端 24 h 最低余氯（越上越好）。<b>前沿上会出现一段明显的空白台阶</b>——从"不补氯"跨到"补氯"，成本跳升约 19 元/d，而余氯只多出 0.03–0.05 mg/L。这就是补氯作为<b>阶跃决策</b>的经济含义。</div>
+    </div>
+
+    <div class="sec">
+      <h2 class="sech"><span class="idx">05</span>当前方案逐时过程<span class="n">24 h · 准稳态日</span></h2>
+      <div class="grid2">
+        <figure><div id="ch_v" class="chart"></div>
+          <figcaption>灰底 = 电价 ≥ 当前避峰阈值的时段｜左轴液位 m³，右轴流量 m³/h</figcaption></figure>
+        <figure><div id="ch_cl" class="chart"></div>
+          <figcaption>余氯：水箱出口 vs 用户端（绿虚线为内控目标）</figcaption></figure>
+        <figure><div id="ch_age" class="chart"></div>
+          <figcaption>水箱平均水龄（灰底同上）</figcaption></figure>
+        <figure><div id="ch_p" class="chart"></div>
+          <figcaption>分时电价与补水时段（橙 = 允许补水，灰 = 错峰停补）</figcaption></figure>
+      </div>
+      <div class="cn">四图共用横轴：时刻 (h)</div>
+    </div>
+
+    <div class="sec">
+      <h2 class="sech"><span class="idx">06</span>Pareto 前沿方案表<span class="n">点击或回车套用该方案</span></h2>
+      <div class="tblscroll"><table id="tbl"></table></div>
+      <div class="scrollhint">← 左右滑动查看全部 11 列 →</div>
+    </div>
+
+    <div class="sec">
+      <h2 class="sech"><span class="idx">07</span>模型假设与参数出处<span class="n">边界声明</span></h2>
+      <div class="box b-b">
+        <div class="bt">构型</div>
+        市政管网 → 补水泵 → 屋顶高位水箱 → 重力流至用户。泵在允许补水时段内将水箱维持在目标液位；禁止补水时段靠存量供水；液位低于保护值时强制补水（安全优先，不计电价）。
+      </div>
+      <div class="note" style="margin-bottom:14px">
+        <p><b>物理模型：</b>① 水箱按完全混合反应器（CSTR）处理；② 余氯衰减取一级动力学 <code>dC/dt = −k·C</code>，k 随水温按 van't Hoff 修正 <code>k(T)=k₂₀·θ^(T−20)</code>，θ=1.035；③ 投加量对衰减速率有放大作用（文献：补氯后余氯衰减速率增大），取 <code>k=k_T·(1+0.15·dose)</code>；④ 泵能耗 <code>E=Q·H/(367·η)</code>，扬程 <code>H=几何扬程+水箱水深−市政压力水头</code>；⑤ 用户端余氯 <code>C_tap=C_tank·e^(−k·τ_立管)</code>，τ=0.5 h。</p>
+        <p><b>成本模型：</b>① 提升电费 = 主泵能耗 × 分时电价；② 补氯设施折旧 = 投资 ÷（年限×365），<b>仅当 dose&gt;0 时计入</b>；③ 年运维费 ÷ 365；④ 计量泵电耗 = 0.15 kW × 补水泵同步运行小时 × 电价；⑤ 药剂费 = 投加量 × 泵送水量 ÷ 1000 × 有效氯单价（kg）。</p>
+        <p><b>用水曲线：</b>住宅逐时用水模式（代码内归一化），GB 50015 住宅时变化曲线形态，<b>参考取值，请以规范原文核对</b>。</p>
+        <p><b>余氯限值：</b>0.05 mg/L（GB 5749《生活饮用水卫生标准》管网末梢要求）；内控目标可在左栏调高。</p>
+        <p><b>分时电价：</b>华东一般工商业示例（尖峰 1.30 / 峰 1.05 / 平 0.65 / 谷 0.35 元/kWh），<b>示例值，需按当地目录替换</b>。</p>
+      </div>
+      <div class="box b-y">
+        <div class="bt">本模型的边界</div>
+        参数为工程常用参考取值，<b>未经实测率定</b>；水箱按完全混合假设，未考虑短流、死水区与分层；未计管网水锤与泵启停损耗；补氯设施投资与运维为量级估计，需按当地询价替换。结论用于<b>策略比选与量级判断</b>，不作为设计依据。
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<footer>
+  二次供水泵房错峰蓄水多目标优化模拟器 · 核心模型已通过自测（解析解对照 / 质量守恒 / 策略方向性 / 水箱容积约束 / 成本分解）· Python 与 JS 双端逐点交叉校验一致 · 参数均为参考取值，需实测率定
+</footer>
+
+</div>
+
+<script>
+/* ============================================================
+   核心模型（与 Python swss/model.py 完全一致，浏览器端实现）
+   ============================================================ */
+const HOURLY_RAW=[1.0,0.5,0.4,0.4,0.5,1.0, 3.0,5.5,5.0,4.0,3.5,3.2, 4.5,4.0,3.2,3.0,3.3,4.0, 5.5,6.0,5.5,4.5,3.0,1.8];
+const HSUM=HOURLY_RAW.reduce((a,b)=>a+b,0);
+const HOURLY=HOURLY_RAW.map(x=>x/HSUM);
+
+const TARIFF=[[0,7,0.35],[7,8,0.65],[8,11,1.05],[11,17,0.65],[17,19,1.05],[19,21,1.30],[21,22,1.05],[22,23,0.65],[23,24,0.35]];
+const PRICE=[];for(let h=0;h<24;h++){let v=TARIFF[TARIFF.length-1][2];for(const[s,e,p]of TARIFF){if(h>=s&&h<e){v=p;break;}}PRICE.push(v);}
+
+const DEF={
+  persons:3.0, quotaL:180, hGeo:54, pMains:20, aTankFrac:0.42, vDeadFrac:0.08,
+  qPump:30, eta:0.72, cMains:0.8, k20:0.05, theta:1.035, tWater:22,
+  betaDose:0.15, tauRiser:0.5, cLimit:0.05, vGuardFrac:0.25, dbFrac:0.05,
+  dosePumpKw:0.15, cTarget:0.05
+};
+
+function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+function demandAt(dem,t){t=((t%24)+24)%24;const i=Math.floor(t),f=t-i;
+  const a=dem[i],b=dem[(i+1)%24];return a*(1-f)+b*f;}
+
+function simulate(P){
+  const dt=P.dt||1/60, nDays=P.nDays||3;
+  const qDaily=P.nHousehold*P.persons*P.quotaL/1000;
+  const dem=HOURLY.map(x=>x*qDaily);
+  const vTank=P.vTank, vDead=vTank*DEF.vDeadFrac, vMax=vTank;
+  const vOff=clamp(P.vOffFrac*vTank, vDead+1, vMax);
+  const vGuard=clamp(vDead+DEF.vGuardFrac*(vTank-vDead), vDead+0.2, Math.min(vOff-1,vMax));
+  const db=DEF.dbFrac*vTank;
+  const kT=P.k20*Math.pow(DEF.theta,P.tWater-20);
+  const dose=P.dose||0;
+  const k=kT*(1+DEF.betaDose*dose);
+  const cIn=P.cMains+dose;
+  const aTank=vTank*DEF.aTankFrac;
+  const mask=P.mask;
+
+  let V=0.5*(vGuard+vOff), C=cIn, A=0;
+  let cost=0, energy=0, unmet=0, overflow=0, forcedVol=0, pumpOn=false;
+  const dosing=dose>1e-9;
+  let volPumped=0, pumpHours=0, energyDose=0, costDoseEnergy=0;
+  const nSteps=Math.round(24/dt)*nDays, recN=Math.round(24/dt), first=nSteps-recN;
+  const R={t:[],V:[],C:[],Ctap:[],A:[],Qin:[],D:[],E:[],price:[]};
+
+  for(let i=0;i<nSteps;i++){
+    const t=i*dt, h=t%24, hi=Math.floor(h);
+    let D=demandAt(dem,h);
+
+    const allowed=mask[hi]===1, forced=(V<=vGuard);
+    if(forced) pumpOn=true;
+    else if(!allowed) pumpOn=false;
+    else{ if(V<=vOff-db) pumpOn=true; else if(V>=vOff) pumpOn=false; }
+    let qIn=pumpOn?P.qPump:0;
+    if(pumpOn&&!allowed) forcedVol+=qIn*dt;
+
+    let vNew=V+(qIn-D)*dt, dEff=D;
+    if(vNew>vMax){ overflow+=(vNew-vMax); qIn=Math.max(0,(vMax-V)/dt+D); vNew=vMax; }
+    if(vNew<vDead){ dEff=Math.max(0,(V-vDead)/dt+qIn); unmet+=(D-dEff)*dt; vNew=vDead; }
+    D=dEff;
+
+    let e=0;
+    if(qIn>0){ const hh=Math.max(P.hGeo+V/aTank-DEF.pMains,1);
+      e=qIn*hh/(367*DEF.eta)*dt;
+      if(i>=first){ energy+=e; cost+=e*PRICE[hi];
+        volPumped+=qIn*dt; pumpHours+=dt;
+        if(dosing){ const ed=DEF.dosePumpKw*dt; energyDose+=ed; costDoseEnergy+=ed*PRICE[hi]; } }
+    }
+
+    const dVC=(qIn*cIn-D*C-k*V*C)*dt;
+    const dVA=(-D*A+V)*dt;
+    const VC=V*C+dVC, VA=V*A+dVA;
+    V=vNew; C=Math.max(0, VC/V); A=VA/V;
+    const cTap=C*Math.exp(-k*DEF.tauRiser);
+
+    if(i>=first){ R.t.push(t-(nDays-1)*24);R.V.push(V);R.C.push(C);R.Ctap.push(cTap);
+      R.A.push(A);R.Qin.push(qIn);R.D.push(D);R.E.push(e);R.price.push(PRICE[hi]); }
+  }
+
+  // ---- 成本分解 ----
+  const doseMass=dose*volPumped/1000;                 // kg/d 有效氯
+  const costChem=doseMass*P.clPrice;
+  const amort=P.doseCapex/(P.doseLifeYr*365);
+  const omD=P.doseOmYr/365;
+  let costDoseFixed;
+  if(!dosing) costDoseFixed=0;
+  else if(P.costView==='run') costDoseFixed=omD;
+  else costDoseFixed=amort+omD;
+  const costDose=costDoseFixed+costDoseEnergy+costChem;
+  const costTotal=cost+costDose;
+
+  const mn=Math.min.apply(null,R.Ctap), mx=Math.max.apply(null,R.A);
+  const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  return {rec:R, cost:cost, costTotal:costTotal, costDose:costDose,
+    costDoseFixed:costDoseFixed, costDoseEnergy:costDoseEnergy, costChem:costChem,
+    doseMass:doseMass, volPumped:volPumped, pumpHours:pumpHours,
+    energyDose:energyDose, energy:energy, qDaily:qDaily, kUsed:k,
+    minCtap:mn, meanCtap:mean(R.Ctap), maxAge:mx, meanAge:mean(R.A),
+    fracBelow:R.Ctap.filter(x=>x<DEF.cLimit).length/R.Ctap.length,
+    unmet:unmet, overflow:overflow, forcedVol:forcedVol,
+    feasible:unmet<=1e-6, vOff:vOff, vGuard:vGuard};
+}
+
+function maskFrom(th){ return PRICE.map(p=> p>=th?0:1); }
+
+/* ============================================================
+   状态 / UI
+   ============================================================ */
+const S={vTank:60, th:1.05, vOffFrac:0.85, dose:0,
+  doseCapex:30000, doseLifeYr:8, doseOmYr:3000, clPrice:10, costView:'full',
+  nHousehold:300, persons:3.0, quotaL:180, hGeo:54, cMains:0.8, k20:0.05, tWater:22,
+  cTarget:0.05};
+let EMBEDDED=null, POINTS=[], FRONT=[], BASE=null, LASTR=null;
+
+function sim(over){
+  const o={}; for(const k in DEF)o[k]=DEF[k]; for(const k in S)o[k]=S[k];
+  for(const k in over)o[k]=over[k];
+  return simulate(o);
+}
+/* H3 修复：评估点与 KPI 用同一套离散化（dt=1/60, 3 天），
+   否则「点击表格行套用方案」后表格数与 KPI 数对不上。 */
+function curSim(){ return sim({mask:maskFrom(S.th), dt:1/60, nDays:3}); }
+function baseSim(){ return sim({vTank:60, mask:PRICE.map(()=>1), vOffFrac:0.85, dose:0, dt:1/60, nDays:3}); }
+function evalPoint(vTank,th,vOffFrac,dose){
+  return sim({vTank:vTank,th:th,vOffFrac:vOffFrac,dose:dose,mask:maskFrom(th), dt:1/60, nDays:3});
+}
+
+const $=id=>document.getElementById(id);
+function fmt(v,n){return (Math.round(v*Math.pow(10,n))/Math.pow(10,n)).toFixed(n);}
+const COL={ink:'#0B0B0C',ink2:'#4A4E56',ink3:'#6B7078',line:'#DCE0E5',line2:'#EDF0F3',
+  o:'#FF4D00',b:'#0057FF',t:'#00A3AD',y:'#F2B100',g:'#00A65A',grey:'#C4C8CE'};
+
+/* 控件的读屏名（纯数字对读屏用户无意义 -> 给语义化文本） */
+const ARIA={
+  s_vtank:v=>v+' 立方米', s_th:v=>fmt(v,2)+' 元每千瓦时', s_voff:v=>Math.round(v*100)+' %',
+  s_dose:v=>fmt(v,1)+' 毫克每升', s_capex:v=>fmt(v/10000,1)+' 万元', s_life:v=>v+' 年',
+  s_om:v=>v+' 元每年', s_clp:v=>fmt(v,1)+' 元每千克', s_hh:v=>v+' 户',
+  s_pp:v=>fmt(v,1)+' 人每户', s_quota:v=>v+' 升每人每天', s_hgeo:v=>v+' 米',
+  s_cmains:v=>fmt(v,2)+' 毫克每升', s_k20:v=>fmt(v,3)+' 每小时', s_tw:v=>v+' 摄氏度',
+  s_ct:v=>fmt(v,2)+' 毫克每升'
+};
+
+function readUI(){
+  S.vTank=+$('s_vtank').value; S.th=+$('s_th').value;
+  S.vOffFrac=+$('s_voff').value; S.dose=+$('s_dose').value;
+  S.doseCapex=+$('s_capex').value*10000; S.doseLifeYr=+$('s_life').value;
+  S.doseOmYr=+$('s_om').value; S.clPrice=+$('s_clp').value;
+  S.nHousehold=+$('s_hh').value; S.persons=+$('s_pp').value;
+  S.quotaL=+$('s_quota').value; S.hGeo=+$('s_hgeo').value;
+  S.cMains=+$('s_cmains').value; S.k20=+$('s_k20').value; S.tWater=+$('s_tw').value;
+  S.cTarget=+$('s_ct').value;
+  $('v_vtank').textContent=S.vTank+' m³';
+  $('v_th').textContent=fmt(S.th,2)+' 元';
+  $('v_voff').textContent=Math.round(S.vOffFrac*100)+'%';
+  $('v_dose').textContent=fmt(S.dose,1)+' mg/L';
+  $('v_capex').textContent=fmt(S.doseCapex/10000,1)+' 万元';
+  $('v_life').textContent=S.doseLifeYr+' a';
+  $('v_om').textContent=S.doseOmYr+' 元/a';
+  $('v_clp').textContent=fmt(S.clPrice,1)+' 元/kg';
+  $('v_hh').textContent=S.nHousehold+' 户';
+  $('v_pp').textContent=fmt(S.persons,1)+' 人';
+  $('v_quota').textContent=S.quotaL+' L/人·d';
+  $('v_hgeo').textContent=S.hGeo+' m';
+  $('v_cmains').textContent=fmt(S.cMains,2)+' mg/L';
+  $('v_k20').textContent=fmt(S.k20,3)+' /h';
+  $('v_tw').textContent=S.tWater+' ℃';
+  $('v_ct').textContent=fmt(S.cTarget,2)+' mg/L';
+  // 读屏语义化取值：16 个滑杆各给一句人话，而不是裸数字
+  // 顺带写入 --p（已填充比例），因为 appearance:none 后原生不再绘制已填充段
+  for(const id in ARIA){
+    const e=$(id); if(!e||!e.setAttribute) continue;
+    e.setAttribute('aria-valuetext',ARIA[id](+e.value));
+    const mn=+e.min||0, mx=+e.max||100, v=+e.value;
+    const p=((v-mn)/((mx-mn)||1))*100;
+    if(e.style&&e.style.setProperty) e.style.setProperty('--p',p.toFixed(2)+'%');
+  }
+}
+
+/* ---------- 成本构成条（M1：零值项不渲染，列数随非零项变化） ---------- */
+function renderCostBar(r){
+  const parts=[['主泵提升电费',r.cost,COL.o],
+               ['补氯 · 折旧摊销',r.costDoseFixed,'#0057FF'],
+               ['补氯 · 计量泵电耗',r.costDoseEnergy,'#00A3AD'],
+               ['次氯酸钠药剂费',r.costChem,'#F2B100']];
+  const tot=r.costTotal||1;
+  const live=parts.filter(p=>p[1]>0);
+  $('cbar').innerHTML=live.map(p=>
+    '<div style="width:'+(p[1]/tot*100).toFixed(2)+'%;background:'+p[2]+'">'+((p[1]/tot*100)>9?fmt(p[1],1):'')+'</div>').join('');
+  $('cleg').style.gridTemplateColumns='repeat('+Math.max(1,live.length)+',minmax(0,1fr))';
+  $('cleg').innerHTML=live.map(p=>
+    '<div class="leg"><div class="lt"><i style="background:'+p[2]+'"></i>'+p[0]+'</div>'+
+    '<div class="lv">'+fmt(p[1],2)+'</div><div class="lp">占 '+fmt(p[1]/tot*100,1)+'%</div></div>').join('');
+  let note;
+  if(r.costDoseFixed>0){
+    const marg=0.1*r.volPumped/1000*S.clPrice;
+    note='补氯设施一旦启用，日均固定支出 <b>'+fmt(r.costDoseFixed,2)+' 元/d</b>；而每多投 0.1 mg/L 的药剂边际成本只有 <b>'+
+      fmt(marg,3)+' 元/d</b>。所以补氯不是"拧旋钮"，是"开不开这个开关"。';
+  } else {
+    note='当前不补氯：<b>补氯设施未启用 → 折旧、运维、药剂三项均不计入</b>，成本全部来自主泵提升电费。';
+  }
+  $('cbarnote').innerHTML=note;
+}
+
+/* ---------- SVG 图表基元 ---------- */
+const NS='http://www.w3.org/2000/svg';
+function el(p,t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e;}
+/* 数值/刻度用等宽字体（仪器感）；中文说明走继承的正文栈 */
+function txt(p,x,y,s,o){
+  o=o||{};
+  const a={x:x,y:y,'font-size':o.size||10,fill:o.fill||COL.ink3,
+    'text-anchor':o.anchor||'start','font-weight':o.weight||400};
+  if(!o.sans) a['font-family']='ui-monospace,"SF Mono",Menlo,Consolas,monospace';
+  if(o.transform) a.transform=o.transform;
+  const e=el(p,'text',a); e.textContent=s; return e;
+}
+/* H7：视口宽度决定 viewBox 宽度 -> 缩放恒为 1x，字号交给 CSS 掌控 */
+function measW(host,def,lo,hi){
+  const w=(host&&host.clientWidth)||def||lo;
+  return Math.round(Math.max(lo,Math.min(hi,w)));
+}
+function deco(range){return range<2?2:(range<20?1:0);}
+function plot(host,W,H,title,pad,ariaLabel){
+  host.innerHTML='';
+  const s=document.createElementNS(NS,'svg');
+  s.setAttribute('viewBox','0 0 '+W+' '+H);
+  s.setAttribute('width',W);
+  s.setAttribute('height',H);
+  s.setAttribute('preserveAspectRatio','xMidYMid meet');
+  s.setAttribute('role','img');
+  s.setAttribute('aria-label',ariaLabel||title||'数据图表');
+  const P=pad||{L:46,R:14,T:24,B:24};
+  const pw=W-P.L-P.R, ph=H-P.T-P.B;
+  el(s,'rect',{x:P.L,y:P.T,width:pw,height:ph,fill:'#fff',stroke:COL.line});
+  if(title) txt(s,P.L,P.T-9,title,{size:11.5,fill:COL.ink,weight:800,sans:true});
+  host.appendChild(s);
+  return {s:s,px:P.L,py:P.T,pw:pw,ph:ph,w:W,h:H};
+}
+function mkY(c,vmin,vmax){return v=>c.py+c.ph-c.ph*clamp((v-vmin)/((vmax-vmin)||1),0,1);}
+/* H5：灰底带跟随「当前避峰阈值」，不再是硬编码 1.05 */
+function bands(c,th){
+  for(let h=0;h<24;h++) if(PRICE[h]>=th)
+    el(c.s,'rect',{x:c.px+c.pw*h/24,y:c.py,width:c.pw/24,height:c.ph,fill:COL.line2});
+}
+function axisY(c,vmin,vmax,ticks,opt){
+  opt=opt||{};
+  for(let i=0;i<=ticks;i++){
+    const v=vmin+(vmax-vmin)*i/ticks, y=c.py+c.ph-c.ph*i/ticks;
+    if(opt.grid!==false) el(c.s,'line',{x1:c.px,y1:y,x2:c.px+c.pw,y2:y,stroke:COL.line2});
+    txt(c.s,opt.right?c.px+c.pw+6:c.px-6,y+3.4,fmt(v,deco(vmax-vmin)),
+      {anchor:opt.right?'start':'end',size:9.5});
+  }
+}
+function axisX24(c,showLabel){
+  for(let h=0;h<=24;h+=4){
+    const x=c.px+c.pw*h/24;
+    el(c.s,'line',{x1:x,y1:c.py,x2:x,y2:c.py+c.ph,stroke:COL.line2});
+    txt(c.s,x,c.py+c.ph+14,h,{anchor:'middle',size:9.5});
+  }
+  if(showLabel) txt(c.s,c.px+c.pw/2,c.h-3,'时刻 (h)',{anchor:'middle',size:9.5,sans:true});
+}
+function poly(c,arr,mapY,color,o){
+  o=o||{};const n=arr.length;if(n<2)return;let d='';
+  for(let i=0;i<n;i++) d+=(i?'L':'M')+(c.px+c.pw*i/(n-1)).toFixed(1)+' '+mapY(arr[i]).toFixed(1);
+  el(c.s,'path',{d:d,fill:'none',stroke:color,'stroke-width':o.w||1.8,
+    'stroke-dasharray':o.dash||'','stroke-linejoin':'round','stroke-linecap':'round'});
+}
+function area(c,arr,mapY,color,op){
+  const n=arr.length;if(n<2)return;let d='M'+c.px.toFixed(1)+' '+(c.py+c.ph).toFixed(1);
+  for(let i=0;i<n;i++) d+='L'+(c.px+c.pw*i/(n-1)).toFixed(1)+' '+mapY(arr[i]).toFixed(1);
+  d+='L'+(c.px+c.pw).toFixed(1)+' '+(c.py+c.ph).toFixed(1)+'Z';
+  el(c.s,'path',{d:d,fill:color,opacity:op||0.1,stroke:'none'});
+}
+function hline(c,v,vmin,vmax,color,label){
+  const y=c.py+c.ph-c.ph*clamp((v-vmin)/((vmax-vmin)||1),0,1);
+  el(c.s,'line',{x1:c.px,y1:y,x2:c.px+c.pw,y2:y,stroke:color,'stroke-width':1.3,'stroke-dasharray':'5 3'});
+  if(label) txt(c.s,c.px+c.pw-4,y-4,label,{anchor:'end',size:9.5,fill:color,weight:700,sans:true});
+}
+
+/* ---------- 渲染：KPI（M2：四卡统一「vs 基线」维度，不再折断） ---------- */
+function renderKPI(r,base){
+  $('k_total').innerHTML=fmt(r.costTotal,2)+'<span class="u">元/d</span>';
+  $('k_cost').innerHTML=fmt(r.cost,2)+'<span class="u">元/d</span>';
+  $('k_dose').innerHTML=fmt(r.costDose,2)+'<span class="u">元/d</span>';
+  $('k_cl').innerHTML=fmt(r.minCtap,3)+'<span class="u">mg/L</span>';
+  const bt=base.costTotal||1, bc=base.cost||1, bq=base.minCtap||1e-9;
+  const set=(id,val,goodHigh)=>{
+    const e=$(id);
+    e.textContent='vs 基线 '+(val>=0?'+':'−')+fmt(Math.abs(val),1)+'%';
+    e.className='kd '+((goodHigh?val>=0:val<=0)?'good':'bad');
+  };
+  set('k_total_d',(r.costTotal-bt)/bt*100,false);
+  set('k_cost_d',(r.cost-bc)/bc*100,false);
+  const eD=$('k_dose_d');
+  eD.textContent=r.costDose>0?('vs 基线 +'+fmt(r.costDose,2)+' 元/d'):'vs 基线 0（未启用）';
+  eD.className='kd '+(r.costDose>0?'bad':'good');
+  const eQ=$('k_cl_d'), dq=(r.minCtap-base.minCtap)/base.minCtap*100;
+  eQ.textContent='vs 基线 '+(dq>=0?'+':'−')+fmt(Math.abs(dq),1)+'%';
+  eQ.className='kd '+(dq>=0?'good':'bad');
+  const ok=r.minCtap>=S.cTarget;
+  $('k_cl_card').className='kpi '+(ok?'g':'r');
+  const bd=$('k_cl_badge'); bd.textContent=ok?'达标':'不达标'; bd.className='kbadge '+(ok?'ok':'no');
+  $('s_e').innerHTML=fmt(r.energy,2)+'<i>kWh/d</i>';
+  $('s_age').innerHTML=fmt(r.maxAge,1)+'<i>h</i>';
+  $('s_ph').innerHTML=fmt(r.pumpHours,2)+'<i>h/d</i>';
+  $('s_q').innerHTML=fmt(r.volPumped,1)+'<i>m³/d</i>';
+  $('s_k').innerHTML=fmt(r.kUsed,4)+'<i>/h</i>';
+  $('s_chem').innerHTML=fmt(r.doseMass,3)+'<i>kg/d</i>';
+}
+
+/* ---------- 渲染：Pareto 散点（H4：内控目标强制入视域 + 图例动态生成） ---------- */
+function renderPareto(r){
+  const host=$('pareto');
+  const W=measW(host,700,320,900);
+  const H=Math.round(Math.max(230,Math.min(420,W*0.46)));
+  host.innerHTML='';
+  const s=document.createElementNS(NS,'svg');
+  s.setAttribute('viewBox','0 0 '+W+' '+H);
+  s.setAttribute('width',W);
+  s.setAttribute('height',H);
+  s.setAttribute('preserveAspectRatio','xMidYMid meet');
+  s.setAttribute('role','img');
+  s.setAttribute('aria-label','Pareto 前沿散点图：横轴日总成本，纵轴用户端最低余氯');
+  host.appendChild(s);
+  const px=56,py=18,pw=W-56-20,ph=H-18-36;
+  const good=POINTS.filter(p=>isFinite(p.cost_total)&&isFinite(p.min_ctap));
+  el(s,'rect',{x:px,y:py,width:pw,height:ph,fill:'#fff',stroke:COL.line});
+  if(!good.length){
+    txt(s,W/2,H/2,'暂无可行方案',{anchor:'middle',size:12,sans:true});
+    $('pareto_legend').innerHTML=''; $('pareto_note').textContent=''; return;
+  }
+  const cs=good.map(p=>p.cost_total), qs=good.map(p=>p.min_ctap);
+  let c0=Math.min.apply(null,cs),c1=Math.max.apply(null,cs);
+  let q0=Math.min.apply(null,qs),q1=Math.max.apply(null,qs);
+  const cpad=(c1-c0)*0.06||1; c0-=cpad;c1+=cpad;
+  // 强制把「内控目标」纳入视域 —— 参考线本就该看得见
+  q0=Math.min(q0, S.cTarget*0.92); q1=Math.max(q1, S.cTarget*1.06);
+  const qpad=(q1-q0)*0.06||0.01; q0=Math.max(0,q0-qpad);q1+=qpad;
+  const X=v=>px+pw*(v-c0)/((c1-c0)||1), Y=v=>py+ph-ph*(v-q0)/((q1-q0)||1);
+
+  for(let i=0;i<=4;i++){
+    const y=py+ph*i/4,v=q1-(q1-q0)*i/4;
+    el(s,'line',{x1:px,y1:y,x2:px+pw,y2:y,stroke:COL.line2});
+    txt(s,px-6,y+3.4,fmt(v,3),{anchor:'end',size:9.5});
+    const x=px+pw*i/4,v2=c0+(c1-c0)*i/4;
+    el(s,'line',{x1:x,y1:py,x2:x,y2:py+ph,stroke:COL.line2});
+    txt(s,x,py+ph+14,fmt(v2,1),{anchor:'middle',size:9.5});
+  }
+  txt(s,px+pw/2,H-4,'日总成本（元/d）  越左越省',{anchor:'middle',size:10,fill:COL.ink2,weight:700,sans:true});
+  txt(s,13,py+ph/2,'用户端最低余氯 (mg/L)',{anchor:'middle',size:10,fill:COL.ink2,weight:700,sans:true,
+    transform:'rotate(-90 13 '+(py+ph/2)+')'});
+
+  const inView = S.cTarget>=q0 && S.cTarget<=q1;
+  if(inView){
+    el(s,'line',{x1:px,y1:Y(S.cTarget),x2:px+pw,y2:Y(S.cTarget),stroke:COL.g,'stroke-width':1.5,'stroke-dasharray':'5 3'});
+    txt(s,px+pw-4,Y(S.cTarget)-4,'内控目标 '+fmt(S.cTarget,2),{anchor:'end',size:9.5,fill:'#00703C',weight:700,sans:true});
+  }
+  good.forEach(p=>el(s,'circle',{cx:X(p.cost_total),cy:Y(p.min_ctap),r:2.6,fill:COL.grey}));
+  if(FRONT.length>1){
+    let d='';FRONT.forEach((p,i)=>{d+=(i?'L':'M')+X(p.cost_total).toFixed(1)+' '+Y(p.min_ctap).toFixed(1);});
+    el(s,'path',{d:d,fill:'none',stroke:COL.o,'stroke-width':2.4});
+  }
+  FRONT.forEach(p=>el(s,'circle',{cx:X(p.cost_total),cy:Y(p.min_ctap),r:4,fill:COL.o}));
+  const cur=r||curSim();
+  if(cur.feasible){
+    el(s,'circle',{cx:X(cur.costTotal),cy:Y(cur.minCtap),r:7,fill:'none',stroke:COL.b,'stroke-width':2.4});
+    el(s,'circle',{cx:X(cur.costTotal),cy:Y(cur.minCtap),r:3.2,fill:COL.b});
+  }
+
+  // 图例：画了什么才列什么
+  let lg='<span><i style="background:#C4C8CE"></i>全部可行方案 '+POINTS.length+'</span>'+
+         '<span><i style="background:#FF4D00"></i>Pareto 前沿 '+FRONT.length+'</span>';
+  if(cur.feasible) lg+='<span><i style="background:#0057FF"></i>当前方案</span>';
+  if(inView) lg+='<span><i style="background:#00A65A"></i>内控目标 '+fmt(S.cTarget,2)+'</span>';
+  else lg+='<span style="color:#6B7078">内控目标 '+fmt(S.cTarget,2)+' 超出视域（下限 '+fmt(q0,3)+'）</span>';
+  $('pareto_legend').innerHTML=lg;
+  $('pareto_note').textContent=POINTS.length+' 个可行方案 · 前沿 '+FRONT.length+' 点';
+}
+
+/* ---------- 渲染：逐时曲线 ---------- */
+function decimate(a,n){const out=[],st=Math.max(1,Math.floor(a.length/n));
+  for(let i=0;i<a.length;i+=st)out.push(a[i]);return out;}
+function renderTraces(r){
+  const V=decimate(r.rec.V,240),Q=decimate(r.rec.Qin,240),D=decimate(r.rec.D,240);
+  const C=decimate(r.rec.C,240),T=decimate(r.rec.Ctap,240),A=decimate(r.rec.A,240);
+  const hostV=$('ch_v');
+  const W=measW(hostV,480,300,620);
+  const H=Math.round(Math.max(170,Math.min(250,W*0.60)));
+
+  // --- 图1：液位（左轴）+ 流量（右轴）—— H2 双量纲拆轴 ---
+  let c=plot(hostV,W,H,'水箱液位与流量',{L:46,R:46,T:24,B:24},
+    '逐时过程图：左轴水箱液位，右轴补水与用水流量，灰色区带为当前避峰阈值下的高电价时段');
+  bands(c,S.th);
+  const vmaxL=Math.max(r.vOff,Math.max.apply(null,V))*1.08;
+  const vmaxQ=Math.max(1,Math.max.apply(null,Q))*1.25;
+  axisY(c,0,vmaxL,4);
+  axisY(c,0,vmaxQ,4,{right:true,grid:false});
+  axisX24(c,false);
+  const yl=mkY(c,0,vmaxL), yq=mkY(c,0,vmaxQ);
+  area(c,V,yl,COL.b,0.09);
+  poly(c,Q,yq,COL.o,{dash:'4 2',w:1.5});
+  poly(c,D,yq,COL.ink,{w:1.1});
+  poly(c,V,yl,COL.b,{w:2.1});
+  txt(c.s,c.px+4,c.py+11,'左轴 液位 m³ / 右轴 流量 m³·h⁻¹',{size:9,fill:COL.ink3,sans:true});
+  txt(c.s,c.px-6,c.py-4,'m³',{anchor:'end',size:9,fill:COL.b,weight:700});
+  txt(c.s,c.px+c.pw+6,c.py-4,'m³/h',{anchor:'start',size:9,fill:COL.o,weight:700});
+
+  // --- 图2：余氯 ---
+  c=plot($('ch_cl'),W,H,'余氯衰减',null,
+    '逐时过程图：水箱出口与用户端余氯衰减曲线，含 GB 5749 内控目标线');
+  bands(c,S.th);
+  const cmax=Math.max(S.cTarget*1.6,Math.max.apply(null,C)*1.1);
+  axisY(c,0,cmax,4); axisX24(c,false);
+  hline(c,S.cTarget,0,cmax,COL.r,'内控目标');
+  poly(c,C,mkY(c,0,cmax),COL.b,{w:1.8});
+  poly(c,T,mkY(c,0,cmax),COL.o,{w:2.1});
+  txt(c.s,c.px+4,c.py+11,'蓝 水箱出口 · 橙 用户端',{size:9,fill:COL.ink3,sans:true});
+  txt(c.s,c.px+4,c.py+c.ph-5,'最低 '+fmt(r.minCtap,3)+' mg/L',
+    {size:10,fill:r.minCtap>=S.cTarget?'#00703C':'#C42C12',weight:800,sans:true});
+
+  // --- 图3：水龄 ---
+  c=plot($('ch_age'),W,H,'水箱平均水龄',null,'逐时过程图：水箱平均水龄变化');
+  bands(c,S.th);
+  const amax=Math.max(1,Math.max.apply(null,A))*1.1;
+  axisY(c,0,amax,4); axisX24(c,true);
+  poly(c,A,mkY(c,0,amax),COL.y,{w:2});
+  txt(c.s,c.px+4,c.py+c.ph-5,'最大 '+fmt(r.maxAge,1)+' h · 平均 '+fmt(r.meanAge,1)+' h',
+    {size:10,fill:'#8A6A00',weight:800,sans:true});
+
+  // --- 图4：分时电价与补水时段 ---
+  c=plot($('ch_p'),W,H,'分时电价与补水时段',null,
+    '分时电价柱状图：橙色为允许补水时段，灰色为错峰停补时段');
+  bands(c,S.th);
+  axisY(c,0,1.5,3); axisX24(c,true);
+  const mask=maskFrom(S.th);
+  for(let h=0;h<24;h++){
+    const x=c.px+c.pw*h/24, w=c.pw/24;
+    const y=c.py+c.ph-c.ph*clamp(PRICE[h]/1.5,0,1);
+    el(c.s,'rect',{x:x+0.5,y:y,width:Math.max(1,w-1),height:c.py+c.ph-y,
+      fill:mask[h]?'#FF4D00':'#C4C8CE',opacity:mask[h]?0.92:0.7});
+  }
+  txt(c.s,c.px+4,c.py+11,'橙 = 允许补水 · 灰 = 错峰停补',{size:9.5,fill:COL.ink,weight:700,sans:true});
+}
+
+/* ---------- 渲染：表格 / 推荐 / 警告 ---------- */
+function renderTable(){
+  const t=$('tbl');
+  let h='<caption>Pareto 前沿方案 · 单位：m³ / 元·kWh⁻¹ / 元·d⁻¹ / mg·L⁻¹ / h</caption>'+
+        '<thead><tr><th scope="col">水箱 m³</th><th scope="col">阈值</th><th scope="col">液位</th><th scope="col">补氯</th>'+
+        '<th scope="col">提升电费</th><th scope="col">补氯成本</th><th scope="col">总成本</th><th scope="col">vs 基线</th>'+
+        '<th scope="col">最低余氯</th><th scope="col">最大水龄 h</th><th scope="col">被迫补 m³</th></tr></thead><tbody>';
+  const bc=BASE?BASE.costTotal:0;
+  FRONT.forEach(p=>{
+    const same=Math.abs(p.v_tank-S.vTank)<1e-6&&Math.abs(p.price_thresh-S.th)<1e-6&&
+               Math.abs(p.v_off_frac-S.vOffFrac)<1e-6&&Math.abs(p.dose-S.dose)<1e-6;
+    const sv=bc?100*(1-p.cost_total/bc):0;
+    const lbl='水箱 '+p.v_tank+' m³，阈值 '+fmt(p.price_thresh,2)+' 元，维持液位 '+Math.round(p.v_off_frac*100)+
+      '%，补氯 '+fmt(p.dose,1)+' mg/L，总成本 '+fmt(p.cost_total,2)+' 元每天';
+    h+='<tr class="'+(same?'hl ':'')+(p.dose>0?'ds':'')+'" data-vt="'+p.v_tank+'" data-th="'+p.price_thresh+
+       '" data-vf="'+p.v_off_frac+'" data-ds="'+p.dose+'" tabindex="0" role="button" aria-label="套用方案：'+lbl+'">'+
+       '<td>'+p.v_tank+'</td><td>'+fmt(p.price_thresh,2)+'</td><td>'+Math.round(p.v_off_frac*100)+'%</td>'+
+       '<td>'+fmt(p.dose,1)+'</td><td>'+fmt(p.cost,2)+'</td><td>'+fmt(p.cost_dose,2)+'</td>'+
+       '<td><b>'+fmt(p.cost_total,2)+'</b></td><td>'+(sv>=0?'+':'')+fmt(sv,1)+'%</td>'+
+       '<td>'+fmt(p.min_ctap,4)+'</td><td>'+fmt(p.max_age,1)+'</td><td>'+fmt(p.forced_vol,1)+'</td></tr>';
+  });
+  t.innerHTML=h+'</tbody>';
+  t.querySelectorAll('tr[data-vt]').forEach(tr=>{
+    const apply=()=>{
+      $('s_vtank').value=tr.dataset.vt; $('s_th').value=tr.dataset.th;
+      $('s_voff').value=tr.dataset.vf; $('s_dose').value=tr.dataset.ds;
+      readUI(); refresh();
+    };
+    tr.onclick=apply;
+    tr.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '||e.key==='Spacebar'){ e.preventDefault&&e.preventDefault(); apply(); } };
+  });
+}
+function renderRec(r){
+  const box=$('recbox'), w=$('warnbox');
+  const ok=FRONT.filter(p=>p.min_ctap>=S.cTarget);
+  if(ok.length){
+    const b=ok.reduce((a,p)=>p.cost_total<a.cost_total?p:a);
+    box.innerHTML='<div class="box b-o"><div class="bt">达标前提下的最省方案</div>'+
+      '水箱 <b>'+b.v_tank+' m³</b> ｜ 避峰阈值 <b>'+fmt(b.price_thresh,2)+' 元</b> ｜ 维持液位 <b>'+
+      Math.round(b.v_off_frac*100)+'%</b> ｜ 补氯 <b>'+fmt(b.dose,1)+' mg/L</b><br>'+
+      '日总成本 <b>'+fmt(b.cost_total,2)+' 元</b>'+(BASE?'（较基线 <b>'+fmt(100*(1-b.cost_total/BASE.costTotal),1)+'%</b>）':'')+
+      ' ｜ 用户端最低余氯 <b>'+fmt(b.min_ctap,4)+' mg/L</b> ｜ 最大水龄 <b>'+fmt(b.max_age,1)+' h</b></div>';
+  } else box.innerHTML='<div class="box b-y"><div class="bt">当前无达标方案</div>'+
+      '在扫描网格内没有方案能同时满足内控目标。请降低内控目标、降低维持液位、缩小水箱，或提高市政来水余氯。</div>';
+
+  let msg='';
+  if(!r.feasible) msg='<b>该方案缺水 '+fmt(r.unmet,1)+' m³/d</b>，不可用。';
+  else{
+    if(r.forcedVol>1) msg='低液位保护触发：本方案有 <b>'+fmt(r.forcedVol,1)+
+      ' m³/d</b> 的水是在禁止补水时段被迫提升的——水箱偏小或避峰过深，错峰收益正在被吃掉。';
+    if(r.minCtap<S.cTarget) msg+=(msg?' ':'')+'<b>用户端余氯不达标</b>（最低 '+fmt(r.minCtap,4)+
+      ' mg/L < '+fmt(S.cTarget,2)+'）：补氯可抬升余氯，但会把日总成本一次性推高约 '+
+      fmt(S.doseCapex/(S.doseLifeYr*365)+S.doseOmYr/365,1)+' 元/d。';
+  }
+  w.innerHTML=msg?('<div class="box b-r"><div class="bt">提示</div>'+msg+'</div>'):'';
+}
+
+/* ---------- 主刷新（M8：图表复用同一份仿真结果，不再重复计算） ---------- */
+function refresh(){
+  BASE=baseSim();
+  const r=curSim(); LASTR=r;
+  renderKPI(r,BASE); renderCostBar(r); renderPareto(r); renderTraces(r); renderTable(); renderRec(r);
+}
+
+/* ---------- 扫描 ---------- */
+const GRID={vt:[40,60,80,100,120,150], th:[9.9,1.30,1.05,0.80,0.65],
+            vf:[0.40,0.55,0.70,0.85,0.95], ds:[0,0.2,0.4,0.8]};
+const GRID_N=GRID.vt.length*GRID.th.length*GRID.vf.length*GRID.ds.length;   // L3：文案随网格
+function paretoOf(pts){
+  const keep=pts.map(()=>true), seen=new Set();
+  for(let i=0;i<pts.length;i++) if(keep[i]){
+    for(let j=0;j<pts.length;j++){ if(i===j||!keep[j])continue;
+      const a=pts[j],b=pts[i];
+      if(a.cost_total<=b.cost_total&&a.min_ctap>=b.min_ctap&&
+         (a.cost_total<b.cost_total||a.min_ctap>b.min_ctap)){keep[i]=false;break;} }
+  }
+  return pts.filter((p,i)=>{if(!keep[i])return false;
+    const k=p.cost_total.toFixed(3)+'|'+p.min_ctap.toFixed(5);
+    if(seen.has(k))return false; seen.add(k); return true;})
+    .sort((a,b)=>a.cost_total-b.cost_total);
+}
+function startSweep(){
+  const btn=$('btn_sweep'); btn.disabled=true;
+  btn.innerHTML='<span class="spin"></span>扫描中 0%';
+  const jobs=[];
+  for(const vt of GRID.vt)for(const th of GRID.th)for(const vf of GRID.vf)for(const ds of GRID.ds)
+    jobs.push([vt,th,vf,ds]);
+  POINTS=[]; let i=0;
+  const step=()=>{
+    const t0=performance.now();
+    while(i<jobs.length && performance.now()-t0<60){
+      const j=jobs[i++];
+      const r=evalPoint(j[0],j[1],j[2],j[3]);
+      if(r.feasible) POINTS.push({v_tank:j[0],price_thresh:j[1],v_off_frac:j[2],dose:j[3],
+        cost:r.cost,cost_total:r.costTotal,cost_dose:r.costDose,
+        cost_dose_fixed:r.costDoseFixed,cost_dose_energy:r.costDoseEnergy,cost_chem:r.costChem,
+        energy:r.energy,min_ctap:r.minCtap,mean_ctap:r.meanCtap,
+        frac_below:r.fracBelow,max_age:r.maxAge,mean_age:r.meanAge,forced_vol:r.forcedVol});
+    }
+    btn.innerHTML='<span class="spin"></span>扫描中 '+Math.round(100*i/jobs.length)+'%';
+    if(i<jobs.length){ setTimeout(step,0); return; }
+    FRONT=paretoOf(POINTS);
+    btn.disabled=false; btn.textContent='重新计算 Pareto 前沿';
+    refresh();
+  };
+  setTimeout(step,0);
+}
+
+/* ---------- 载入内嵌 Python 计算结果 ---------- */
+function useEmbedded(d){
+  EMBEDDED=d; POINTS=d.points; FRONT=d.front;
+  if(d.meta&&d.meta.generated){ const e=$('v_date'); if(e) e.textContent='生成时间 '+d.meta.generated; }
+  refresh();
+}
+
+/* ---------- 面板折叠（移动端默认收起） ---------- */
+let lastMobile=null;
+function syncPanel(){
+  const vw=(typeof window!=='undefined'&&window.innerWidth)||1440;
+  const mob=vw<=1040;
+  if(mob===lastMobile) return;
+  lastMobile=mob;
+  const d=$('panelbox'); if(d) d.open=!mob;
+}
+function redrawCharts(){ if(!LASTR) return; renderPareto(LASTR); renderTraces(LASTR); }
+
+/* ---------- 事件绑定（M8：只绑 input，去掉重复的 change） ---------- */
+['s_vtank','s_th','s_voff','s_dose','s_capex','s_life','s_om','s_clp',
+ 's_hh','s_pp','s_quota','s_hgeo','s_cmains','s_k20','s_tw','s_ct']
+  .forEach(id=>{const e=$(id); if(e) e.addEventListener('input',()=>{readUI();refresh();});});
+$('bv_full').onclick=()=>{S.costView='full';$('bv_full').className='on';$('bv_run').className='';readUI();refresh();};
+$('bv_run').onclick=()=>{S.costView='run';$('bv_run').className='on';$('bv_full').className='';readUI();refresh();};
+$('btn_sweep').onclick=startSweep;
+$('sweep_hint').textContent='全空间 '+GRID_N+' 组方案扫描，约需数秒';
+
+if(typeof window!=='undefined'&&window.addEventListener){
+  let rt=null;
+  window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{syncPanel();redrawCharts();},150);});
+}
+syncPanel();
+readUI();
+</script>
+<script id="embedded-data" type="application/json">__PARETO_JSON__</script>
+<script>
+(function(){
+  const node=document.getElementById('embedded-data');
+  try{ const d=JSON.parse(node.textContent);
+    if(d&&d.points&&d.points.length) useEmbedded(d);
+    else startSweep();
+  }catch(e){ startSweep(); }
+})();
+</script>
+</body>
+</html>
